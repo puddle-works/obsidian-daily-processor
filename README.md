@@ -43,5 +43,5 @@ Test it:
 ```bash
 DENO=$(swamp doctor extensions --json | jq -r '.denoPath')
 $DENO check extensions/models/obsidian_daily_processor.ts
-$DENO test extensions/models/obsidian_daily_processor_test.ts
+$DENO test --allow-read --allow-write --allow-run extensions/models/obsidian_daily_processor_test.ts
 ```
