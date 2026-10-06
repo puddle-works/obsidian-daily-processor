@@ -1,0 +1,33 @@
+id: 36c9f8c7-c5f7-4ff5-b326-89dc56e24a1c
+name: obsidian-daily-process
+description: "Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences)."
+version: 1
+tags:
+  puddle: "true"
+
+inputs:
+  type: object
+  properties:
+    date:
+      type: string
+      description: "Day to process, as YYYY-MM-DD. Leave empty for today."
+      default: ""
+  required: []
+
+jobs:
+  - name: main
+    description: "Run obsidian-daily-processor once with the requester's inputs."
+    dependsOn: []
+    weight: 0
+    steps:
+      - name: run
+        description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each."
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+        task:
+          type: model_method
+          modelIdOrName: obsidian-daily-processor
+          methodName: run
+          inputs:
+            date: ${{ inputs.date }}
