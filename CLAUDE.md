@@ -34,16 +34,30 @@ Anything on this list, or anything beyond the purpose above, is a new puddle
 request. Do not add it here, and do not add permissions or secrets the
 settings above do not name.
 
+## How it runs
+
+The workflow is **prepare → ask → run**, with the AI call in the reusable
+`@mesgme/opencode` extension (`shared/opencode/`), not in this app.
+
+- `prepare` (args `date`) reads the daily note and stores resource `request`
+  `{ date, dailyPath, system, prompt, schema }`. The prompt wraps the log in
+  `<daily_log>` tags; prompt and schema live in this app's code and are tested here.
+- `ask` is the `opencode` model instance's method. It stores the JSON answer under
+  data name `obsidian-daily-processor`.
+- `run` (args `date`, `answer`) validates `answer` with `ExtractionSchema`, writes
+  `<outputFolder>/<date> processed.md`, and stores `{date}` as `result.args`.
+  `RunArgsSchema` stays exactly `{date}`; `run` only widens the method arguments.
+
+Needs a model instance named `opencode` of `@mesgme/opencode`, key from a vault,
+`model=deepseek-v4.1-flash`. Creation commands are in `README.md`. This app holds
+no key and no model name.
+
 ## Finishing the draft
 
-1. Replace the `run` stub in `extensions/models/obsidian_daily_processor.ts` with the
-   real behaviour. Keep the argument names: the workflow and the requester's
-   form depend on them.
-2. Give `ResultSchema.items` the shape of the output above, and add tests for
-   the behaviour to `extensions/models/obsidian_daily_processor_test.ts`. Leave the
-   generated tests as they are: they stub `run`, so they keep passing. Tests
-   of the behaviour call `run` directly with working settings.
-3. If the tests need permissions (`--allow-read`, `--allow-net`, …), add the
-   same flags to the "Test it" command in `README.md` and to this app's line
-   in the repo `Makefile`.
+1. Keep `RunArgsSchema` as `{date}` and keep `run` calling
+   `behaviour.run(args, globalArgs)`: the generated tests depend on it.
+2. Behaviour tests live in `extensions/models/obsidian_daily_processor_test.ts`
+   and use a temp vault; no network.
+3. The tests read and write files, so the "Test it" command in `README.md` and the
+   repo `Makefile` line carry `--allow-read --allow-write`.
 4. `deno check` and `deno test` must pass before review.

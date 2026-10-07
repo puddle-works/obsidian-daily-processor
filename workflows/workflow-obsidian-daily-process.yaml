@@ -16,13 +16,44 @@ inputs:
 
 jobs:
   - name: main
-    description: "Run obsidian-daily-processor once with the requester's inputs."
+    description: "Read the day's log, ask the AI through the opencode model, then write the processed note."
     dependsOn: []
     weight: 0
     steps:
+      - name: prepare
+        description: "Read the daily note and store the request (system prompt, prompt, JSON schema)."
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+        task:
+          type: model_method
+          modelIdOrName: obsidian-daily-processor
+          methodName: prepare
+          inputs:
+            date: ${{ inputs.date }}
+      - name: ask
+        description: "Ask the AI (model instance `opencode`, @mesgme/opencode) for todos and permanent notes."
+        dependsOn:
+          - step: prepare
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+        task:
+          type: model_method
+          modelIdOrName: opencode
+          methodName: ask
+          inputs:
+            system: ${{ data.latest("obsidian-daily-processor", "request").attributes.system }}
+            prompt: ${{ data.latest("obsidian-daily-processor", "request").attributes.prompt }}
+            schema: ${{ data.latest("obsidian-daily-processor", "request").attributes.schema }}
+            name: obsidian-daily-processor
       - name: run
         description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each."
-        dependsOn: []
+        dependsOn:
+          - step: ask
+            condition:
+              type: succeeded
         weight: 0
         allowFailure: false
         task:
@@ -30,4 +61,5 @@ jobs:
           modelIdOrName: obsidian-daily-processor
           methodName: run
           inputs:
-            date: ${{ inputs.date }}
+            date: ${{ data.latest("obsidian-daily-processor", "request").attributes.date }}
+            answer: ${{ data.latest("opencode", "obsidian-daily-processor").attributes.json }}
