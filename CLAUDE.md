@@ -16,7 +16,7 @@ Turn one day's daily-log note into a separate processed note that lists atomic t
 - `vaultPath` — Absolute path of the Obsidian vault on the machine that runs the app.
 - `dailyNotesFolder` — Folder inside the vault that holds the daily notes, each named YYYY-MM-DD.md.
 - `outputFolder` — Folder inside the vault where processed notes are written.
-- `claudePath` — Full path of the Claude Code command on the machine that runs the app, for example /Users/mellens/.local/bin/claude. That machine must already be logged in to Claude.
+- `opencodeApiKey` (secret — vault only) — OpenCode Go API key used to pull todos and permanent notes out of the daily log.
 
 ## Output
 
