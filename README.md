@@ -22,14 +22,13 @@ See [CLAUDE.md](CLAUDE.md) for the bounded purpose and what is out of scope.
   `workflows/workflow-obsidian-daily-process.yaml`
 - Delivery method: `scheduled_workflow`
 
-Create the model instance the workflow runs (store each secret in a vault first):
+Create the model instance the workflow runs:
 
 ```bash
 swamp model create @mesgme/obsidian-daily-processor obsidian-daily-processor \
   --global-arg vaultPath=<vaultPath> \
   --global-arg dailyNotesFolder=<dailyNotesFolder> \
-  --global-arg outputFolder=<outputFolder> \
-  --global-arg 'opencodeApiKey=${{ vault.get("<vault>", "opencodeApiKey") }}'
+  --global-arg outputFolder=<outputFolder>
 ```
 
 Run it:
@@ -43,5 +42,5 @@ Test it:
 ```bash
 DENO=$(swamp doctor extensions --json | jq -r '.denoPath')
 $DENO check extensions/models/obsidian_daily_processor.ts
-$DENO test --allow-read --allow-write extensions/models/obsidian_daily_processor_test.ts
+$DENO test extensions/models/obsidian_daily_processor_test.ts
 ```

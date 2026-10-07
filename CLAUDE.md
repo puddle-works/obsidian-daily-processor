@@ -16,7 +16,6 @@ Turn one day's daily-log note into a separate processed note that lists atomic t
 - `vaultPath` — Absolute path of the Obsidian vault on the machine that runs the app.
 - `dailyNotesFolder` — Folder inside the vault that holds the daily notes, each named YYYY-MM-DD.md.
 - `outputFolder` — Folder inside the vault where processed notes are written.
-- `opencodeApiKey` (secret — vault only) — OpenCode API key used to have Claude, through OpenCode Zen, pull todos and permanent notes out of the daily log.
 
 ## Output
 
