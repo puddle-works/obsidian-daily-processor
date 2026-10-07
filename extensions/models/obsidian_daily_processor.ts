@@ -26,7 +26,7 @@ export const GlobalArgsSchema = z.object({
   vaultPath: z.string().min(1).describe("Absolute path of the Obsidian vault on the machine that runs the app."),
   dailyNotesFolder: z.string().min(1).describe("Folder inside the vault that holds the daily notes, each named YYYY-MM-DD.md."),
   outputFolder: z.string().min(1).describe("Folder inside the vault where processed notes are written."),
-  opencodeApiKey: z.string().min(1).meta({ sensitive: true, description: "OpenCode Go API key used to pull todos and permanent notes out of the daily log." }),
+  opencodeApiKey: z.string().min(1).meta({ sensitive: true, description: "OpenCode API key used to have Claude, through OpenCode Zen, pull todos and permanent notes out of the daily log." }),
 });
 export type GlobalArgs = z.infer<typeof GlobalArgsSchema>;
 
