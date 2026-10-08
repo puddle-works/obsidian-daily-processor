@@ -2,6 +2,9 @@ manifestVersion: 1
 name: "@mesgme/obsidian-daily-processor"
 version: "2026.10.07.2"
 description: "Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences)."
+additionalFiles:
+  - README.md
+  - LICENSE
 models:
   - obsidian_daily_processor.ts
 dependencies:
