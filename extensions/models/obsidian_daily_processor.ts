@@ -26,15 +26,23 @@ import { z } from "npm:zod@4";
 
 /** Settings fixed once per model instance by the builder, not the requester. */
 export const GlobalArgsSchema = z.object({
-  vaultPath: z.string().min(1).describe("Absolute path of the Obsidian vault on the machine that runs the app."),
-  dailyNotesFolder: z.string().min(1).describe("Folder inside the vault that holds the daily notes, each named YYYY-MM-DD.md."),
-  outputFolder: z.string().min(1).describe("Folder inside the vault where processed notes are written."),
+  vaultPath: z.string().min(1).describe(
+    "Absolute path of the Obsidian vault on the machine that runs the app.",
+  ),
+  dailyNotesFolder: z.string().min(1).describe(
+    "Folder inside the vault that holds the daily notes, each named YYYY-MM-DD.md.",
+  ),
+  outputFolder: z.string().min(1).describe(
+    "Folder inside the vault where processed notes are written.",
+  ),
 });
 export type GlobalArgs = z.infer<typeof GlobalArgsSchema>;
 
 /** Arguments for `run` — one per specification input. */
 export const RunArgsSchema = z.object({
-  date: z.string().default("").describe("Day to process, as YYYY-MM-DD. Leave empty for today."),
+  date: z.string().default("").describe(
+    "Day to process, as YYYY-MM-DD. Leave empty for today.",
+  ),
 });
 export type RunArgs = z.infer<typeof RunArgsSchema>;
 
@@ -63,7 +71,9 @@ export type Result = z.infer<typeof ResultSchema>;
 /** What the AI pulls out of one day's log. */
 export const ExtractionSchema = z.object({
   todos: z.array(z.string().min(1)),
-  permanentNotes: z.array(z.object({ title: z.string().min(1), body: z.string().min(1) })),
+  permanentNotes: z.array(
+    z.object({ title: z.string().min(1), body: z.string().min(1) }),
+  ),
 });
 export type Extraction = z.infer<typeof ExtractionSchema>;
 
@@ -79,7 +89,9 @@ export type Request = z.infer<typeof RequestSchema>;
 
 /** Arguments for the `run` method: the date plus the AI's answer from the `ask` step. */
 export const WriteArgsSchema = RunArgsSchema.extend({
-  answer: z.unknown().optional().describe("The AI's answer: an object with `todos` and `permanentNotes`."),
+  answer: z.unknown().optional().describe(
+    "The AI's answer: an object with `todos` and `permanentNotes`.",
+  ),
 });
 export type WriteArgs = z.infer<typeof WriteArgsSchema>;
 
@@ -102,7 +114,8 @@ export const EXTRACTION_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
-export const SYSTEM_PROMPT = `You process one day of someone's dictated daily log from their Obsidian vault.
+export const SYSTEM_PROMPT =
+  `You process one day of someone's dictated daily log from their Obsidian vault.
 The log is an unstructured brain dump. Pull out exactly two things:
 
 - todos: atomic actions the writer intends to do. One action per item, written as a short
@@ -112,7 +125,6 @@ The log is an unstructured brain dump. Pull out exactly two things:
   full sentences that make sense on their own, without the log beside them.
 
 Use only what the log says. Do not invent tasks or ideas. Either list may be empty.`;
-
 
 /** What `prepare` and `run` reach outside the vault for. Tests replace these. */
 export interface Deps {
@@ -125,7 +137,10 @@ function resolve(date: string, settings: GlobalArgs, deps: Deps) {
   const day = date || localDate((deps.now ?? (() => new Date()))());
   assertDate(day);
   const root = settings.vaultPath.replace(/\/+$/, "");
-  const dailyFolder = insideVault(settings.dailyNotesFolder, "dailyNotesFolder");
+  const dailyFolder = insideVault(
+    settings.dailyNotesFolder,
+    "dailyNotesFolder",
+  );
   const outputFolder = insideVault(settings.outputFolder, "outputFolder");
   return { day, root, dailyPath: `${dailyFolder}/${day}.md`, outputFolder };
 }
@@ -134,14 +149,20 @@ function resolve(date: string, settings: GlobalArgs, deps: Deps) {
  * Read one day's log and build the request for the AI. Writes nothing to the vault.
  * An empty log is still sent: it costs one cheap call and comes back with empty lists.
  */
-export async function prepare(args: RunArgs, settings: GlobalArgs, deps: Deps = {}): Promise<Request> {
+export async function prepare(
+  args: RunArgs,
+  settings: GlobalArgs,
+  deps: Deps = {},
+): Promise<Request> {
   const { day, root, dailyPath } = resolve(args.date, settings, deps);
   let log: string;
   try {
     log = await Deno.readTextFile(`${root}/${dailyPath}`);
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
-      throw new Error(`No daily note for ${day} at "${dailyPath}" in the vault.`);
+      throw new Error(
+        `No daily note for ${day} at "${dailyPath}" in the vault.`,
+      );
     }
     throw e;
   }
@@ -158,23 +179,46 @@ export async function prepare(args: RunArgs, settings: GlobalArgs, deps: Deps = 
  * Turn the AI's answer into the processed note. The answer is checked against
  * ExtractionSchema first; if it does not match, nothing is written.
  */
-export async function run(args: WriteArgs, settings: GlobalArgs, deps: Deps = {}): Promise<Processed[]> {
-  const { day, root, dailyPath, outputFolder } = resolve(args.date, settings, deps);
+export async function run(
+  args: WriteArgs,
+  settings: GlobalArgs,
+  deps: Deps = {},
+): Promise<Processed[]> {
+  const { day, root, dailyPath, outputFolder } = resolve(
+    args.date,
+    settings,
+    deps,
+  );
   const parsed = ExtractionSchema.safeParse(args.answer);
   if (!parsed.success) {
-    throw new Error(`The AI's answer does not match the expected shape, so nothing was written: ${z.prettifyError(parsed.error)}`);
+    throw new Error(
+      `The AI's answer does not match the expected shape, so nothing was written: ${
+        z.prettifyError(parsed.error)
+      }`,
+    );
   }
   const extraction = parsed.data;
   const path = `${outputFolder}/${day} processed.md`;
   await Deno.mkdir(`${root}/${outputFolder}`, { recursive: true });
-  await Deno.writeTextFile(`${root}/${path}`, renderNote(day, dailyPath, extraction));
-  return [{ date: day, path, todos: extraction.todos.length, permanentNotes: extraction.permanentNotes.length }];
+  await Deno.writeTextFile(
+    `${root}/${path}`,
+    renderNote(day, dailyPath, extraction),
+  );
+  return [{
+    date: day,
+    path,
+    todos: extraction.todos.length,
+    permanentNotes: extraction.permanentNotes.length,
+  }];
 }
 
 function renderNote(date: string, dailyPath: string, x: Extraction): string {
-  const todos = x.todos.length ? x.todos.map((t) => `- [ ] ${t}`).join("\n") : "None found.";
+  const todos = x.todos.length
+    ? x.todos.map((t) => `- [ ] ${t}`).join("\n")
+    : "None found.";
   const notes = x.permanentNotes.length
-    ? x.permanentNotes.map((n) => `### ${n.title}\n\n*${date}*\n\n${n.body}`).join("\n\n")
+    ? x.permanentNotes.map((n) => `### ${n.title}\n\n*${date}*\n\n${n.body}`)
+      .join("\n\n")
     : "None found.";
   return `# ${date} processed\n\nFrom the daily log \`${dailyPath}\`.\n\n## Todos\n\n${todos}\n\n## Permanent notes\n\n${notes}\n`;
 }
@@ -189,7 +233,9 @@ function assertDate(date: string): void {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   const d = m && new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   if (!m || !d || localDate(d) !== date) {
-    throw new Error(`The date must be a real day written as YYYY-MM-DD, not "${date}".`);
+    throw new Error(
+      `The date must be a real day written as YYYY-MM-DD, not "${date}".`,
+    );
   }
 }
 
@@ -197,7 +243,9 @@ function assertDate(date: string): void {
 function insideVault(folder: string, setting: string): string {
   const f = folder.replace(/\/+$/, "");
   if (f.startsWith("/") || f.split("/").includes("..")) {
-    throw new Error(`${setting} must be a folder inside the vault, not "${folder}".`);
+    throw new Error(
+      `${setting} must be a folder inside the vault, not "${folder}".`,
+    );
   }
   return f;
 }
@@ -220,13 +268,15 @@ export const model = {
   globalArguments: GlobalArgsSchema,
   resources: {
     request: {
-      description: "The day's log wrapped as a prompt, with the system prompt and JSON schema, ready for the `ask` step.",
+      description:
+        "The day's log wrapped as a prompt, with the system prompt and JSON schema, ready for the `ask` step.",
       schema: RequestSchema,
       lifetime: "infinite" as const,
       garbageCollection: 5,
     },
     result: {
-      description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each.",
+      description:
+        "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each.",
       schema: ResultSchema,
       lifetime: "infinite" as const,
       garbageCollection: 20,
@@ -234,20 +284,30 @@ export const model = {
   },
   methods: {
     prepare: {
-      description: "Read one day's daily log and store the request (system prompt, prompt, JSON schema) for the AI step. Writes nothing to the vault.",
+      description:
+        "Read one day's daily log and store the request (system prompt, prompt, JSON schema) for the AI step. Writes nothing to the vault.",
       arguments: RunArgsSchema,
       execute: async (args: RunArgs, context: MethodContext) => {
         const request = await behaviour.prepare(args, context.globalArgs);
-        const handle = await context.writeResource("request", "request", request);
+        const handle = await context.writeResource(
+          "request",
+          "request",
+          request,
+        );
         return { dataHandles: [handle] };
       },
     },
     run: {
-      description: "Write the processed note for one day from the AI's answer: atomic todos and dated permanent notes (one idea each, in full sentences).",
+      description:
+        "Write the processed note for one day from the AI's answer: atomic todos and dated permanent notes (one idea each, in full sentences).",
       arguments: WriteArgsSchema,
       execute: async (args: WriteArgs, context: MethodContext) => {
         const items = await behaviour.run(args, context.globalArgs);
-        const result: Result = { args: { date: args.date }, items, ranAt: new Date().toISOString() };
+        const result: Result = {
+          args: { date: args.date },
+          items,
+          ranAt: new Date().toISOString(),
+        };
         const handle = await context.writeResource("result", "result", result);
         return { dataHandles: [handle] };
       },
