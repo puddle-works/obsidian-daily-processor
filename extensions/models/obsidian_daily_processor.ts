@@ -24,7 +24,7 @@
  */
 import { z } from "npm:zod@4";
 
-/** Settings fixed once per model instance by the builder, not the requester. */
+/** Settings fixed once per model instance, not per run. */
 export const GlobalArgsSchema = z.object({
   vaultPath: z.string().min(1).describe(
     "Absolute path of the Obsidian vault on the machine that runs the app.",
@@ -36,14 +36,16 @@ export const GlobalArgsSchema = z.object({
     "Folder inside the vault where processed notes are written.",
   ),
 });
+/** The settings of one model instance. */
 export type GlobalArgs = z.infer<typeof GlobalArgsSchema>;
 
-/** Arguments for `run` — one per specification input. */
+/** Arguments for `prepare`, one per input the person fills in. */
 export const RunArgsSchema = z.object({
   date: z.string().default("").describe(
     "Day to process, as YYYY-MM-DD. Leave empty for today.",
   ),
 });
+/** The arguments `prepare` accepts. */
 export type RunArgs = z.infer<typeof RunArgsSchema>;
 
 /**
@@ -59,13 +61,16 @@ export const ProcessedSchema = z.object({
   /** Number of permanent notes written. */
   permanentNotes: z.number().int(),
 });
+/** The outcome of processing one day. */
 export type Processed = z.infer<typeof ProcessedSchema>;
 
+/** What one `run` stores: the arguments used, what was written and when it ran. */
 export const ResultSchema = z.object({
   args: RunArgsSchema,
   items: z.array(ProcessedSchema),
   ranAt: z.iso.datetime(),
 });
+/** The stored result of one `run`. */
 export type Result = z.infer<typeof ResultSchema>;
 
 /** What the AI pulls out of one day's log. */
@@ -75,6 +80,7 @@ export const ExtractionSchema = z.object({
     z.object({ title: z.string().min(1), body: z.string().min(1) }),
   ),
 });
+/** The AI's answer once it has passed `ExtractionSchema`. */
 export type Extraction = z.infer<typeof ExtractionSchema>;
 
 /** What `prepare` stores for the `ask` step: everything the AI call needs. */
@@ -85,6 +91,7 @@ export const RequestSchema = z.object({
   prompt: z.string(),
   schema: z.record(z.string(), z.unknown()),
 });
+/** The stored request handed to the `ask` step. */
 export type Request = z.infer<typeof RequestSchema>;
 
 /** Arguments for the `run` method: the date plus the AI's answer from the `ask` step. */
@@ -93,6 +100,7 @@ export const WriteArgsSchema = RunArgsSchema.extend({
     "The AI's answer: an object with `todos` and `permanentNotes`.",
   ),
 });
+/** The arguments `run` accepts. */
 export type WriteArgs = z.infer<typeof WriteArgsSchema>;
 
 /** JSON schema the AI's answer must match; mirrors ExtractionSchema. */
@@ -114,6 +122,7 @@ export const EXTRACTION_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Instructions sent to the AI: how to pull todos and permanent notes out of a daily log. */
 export const SYSTEM_PROMPT =
   `You process one day of someone's dictated daily log from their Obsidian vault.
 The log is an unstructured brain dump. Pull out exactly two things:
@@ -262,6 +271,7 @@ interface MethodContext {
   ) => Promise<{ name: string }>;
 }
 
+/** The model type: `prepare` stores a request for the AI step, `run` writes the processed note. */
 export const model = {
   type: "@mesgme/obsidian-daily-processor",
   version: "2026.10.07.2",
