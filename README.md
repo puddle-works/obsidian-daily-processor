@@ -1,67 +1,63 @@
-# Process Superwhisper daily log entries into structured Obsidian notes
+# @mesgme/obsidian-daily-processor
 
-Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences).
+Turn one day's dictated daily log in an Obsidian vault (for example from
+Superwhisper) into a separate processed note. The note lists atomic todos and
+dated permanent notes, each permanent note holding one idea in full sentences.
+The original log is never changed; the result is written to a new note at
+`<outputFolder>/<date> processed.md`.
 
-## For the requester
+An AI model does the reading, so the work is split into three steps that a
+swamp workflow chains together:
 
-The app runs on a schedule. You can also run it now from puddle with the form below.
+1. `prepare` (this extension) reads the day's log and stores a `request`: system
+   prompt, prompt and JSON schema. It writes nothing to the vault.
+2. `ask` (the separate `@mesgme/opencode` extension)
+   sends the request to an OpenCode Zen model and stores its JSON answer.
+3. `run` (this extension) checks the answer against its schema and writes the
+   note. A bad answer writes nothing.
 
-| What to enter | Kind | Default |
-|---|---|---|
-| Day to process, as YYYY-MM-DD. Leave empty for today. | string | empty |
+Nothing is tied to a particular vault, folder or model: those are settings.
 
-**You get:** A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each.
+## Settings
 
-## For the builder
+| Setting            | Meaning                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `vaultPath`        | Absolute path of the Obsidian vault.                            |
+| `dailyNotesFolder` | Folder inside the vault holding daily notes, named `YYYY-MM-DD.md`. |
+| `outputFolder`     | Folder inside the vault where processed notes are written.      |
 
-First draft generated from the approved specification of request `obsidian-daily-processor`.
-See [CLAUDE.md](CLAUDE.md) for the bounded purpose and what is out of scope.
+Both folders must be inside the vault. `date` (`YYYY-MM-DD`, empty for today)
+is the only argument to `prepare` and `run`; `run` also takes the AI `answer`.
 
-- Extension: `@mesgme/obsidian-daily-processor` in `extensions/models/obsidian_daily_processor.ts`
-- Entry point: workflow `obsidian-daily-process` in
-  `workflows/workflow-obsidian-daily-process.yaml`
-- Delivery method: `scheduled_workflow`
+## Use it
 
-The workflow is **prepare → ask → run**:
-
-1. `prepare` (this app) reads the day's log and stores a `request`: system prompt,
-   prompt and JSON schema. It writes nothing to the vault.
-2. `ask` (model instance `opencode`, type `@mesgme/opencode`) sends the request to
-   an OpenCode Zen model and stores the JSON answer.
-3. `run` (this app) checks the answer against its schema and writes the note. A
-   bad answer writes nothing.
-
-It depends on a model instance named `opencode` of the shared `@mesgme/opencode`
-extension (see `shared/opencode/README.md`). The API key comes from a vault; the
-default model is `deepseek-v4.1-flash`. Create it once:
+Create the AI step once. It needs an OpenCode API key kept in a vault:
 
 ```bash
-swamp vault create local_encryption opencode    # skip if you already have a vault
-swamp vault put opencode opencodeApiKey         # prompts for the OpenCode API key
+swamp vault create local_encryption opencode
+swamp vault put opencode opencodeApiKey
 swamp model create @mesgme/opencode opencode \
   --global-arg 'apiKey=${{ vault.get("opencode", "opencodeApiKey") }}' \
   --global-arg model=deepseek-v4.1-flash
 ```
 
-Then create the model instance the workflow runs:
+Then create the processor and run the first step:
 
 ```bash
-swamp model create @mesgme/obsidian-daily-processor obsidian-daily-processor \
-  --global-arg vaultPath=<vaultPath> \
-  --global-arg dailyNotesFolder=<dailyNotesFolder> \
-  --global-arg outputFolder=<outputFolder>
+swamp model create @mesgme/obsidian-daily-processor daily-processor \
+  --global-arg vaultPath=/path/to/your/vault \
+  --global-arg dailyNotesFolder=Daily \
+  --global-arg outputFolder=Processed
+swamp model method run daily-processor prepare --input date=2026-10-07
 ```
 
-Run it:
+Wire `prepare` → `ask` → `run` in a workflow, passing the stored `request` to
+`ask` and its answer to `run`. See the `@mesgme/opencode` README for the `ask`
+step.
 
-```bash
-swamp workflow run obsidian-daily-process
-```
-
-Test it:
+## Test it
 
 ```bash
 DENO=$(swamp doctor extensions --json | jq -r '.denoPath')
-$DENO check extensions/models/obsidian_daily_processor.ts
 $DENO test --allow-read --allow-write extensions/models/obsidian_daily_processor_test.ts
 ```
