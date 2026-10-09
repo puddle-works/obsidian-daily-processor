@@ -107,12 +107,15 @@ export type WriteArgs = z.infer<typeof WriteArgsSchema>;
 export const EXTRACTION_JSON_SCHEMA = {
   type: "object",
   properties: {
-    todos: { type: "array", items: { type: "string" } },
+    todos: { type: "array", items: { type: "string", minLength: 1 } },
     permanentNotes: {
       type: "array",
       items: {
         type: "object",
-        properties: { title: { type: "string" }, body: { type: "string" } },
+        properties: {
+          title: { type: "string", minLength: 1 },
+          body: { type: "string", minLength: 1 },
+        },
         required: ["title", "body"],
         additionalProperties: false,
       },
@@ -274,7 +277,7 @@ interface MethodContext {
 /** The model type: `prepare` stores a request for the AI step, `run` writes the processed note. */
 export const model = {
   type: "@mesgme/obsidian-daily-processor",
-  version: "2026.10.07.2",
+  version: "2026.10.09.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     request: {
