@@ -6,10 +6,12 @@
  * @module
  */
 import {
+  assert,
   assertEquals,
   assertRejects,
   assertStringIncludes,
 } from "jsr:@std/assert@1";
+import { parse as parseYaml } from "jsr:@std/yaml@1";
 import { Validator } from "npm:@cfworker/json-schema@4.1.1";
 import { assertSpyCallArgs, stub } from "jsr:@std/testing@1/mock";
 import {
@@ -324,6 +326,68 @@ Deno.test("result items carry the output shape", () => {
   assertEquals(
     ResultSchema.safeParse({ ...result, items: [{ nope: 1 }] }).success,
     false,
+  );
+});
+
+// --- The workflow wires prepare -> ask -> (opt-in review) -> run. ---
+
+interface TriggerCondition {
+  type: string;
+  conditions?: TriggerCondition[];
+}
+
+interface WorkflowStep {
+  name: string;
+  guard?: string;
+  dependsOn?: Array<{ step: string; condition: TriggerCondition }>;
+  task: { type: string; prompt?: string; timeout?: number };
+}
+
+interface WorkflowDefinition {
+  inputs: { properties: Record<string, { type: string; default?: unknown }> };
+  jobs: Array<{ name: string; steps: WorkflowStep[] }>;
+}
+
+function loadWorkflow(): WorkflowDefinition {
+  const path = new URL(
+    "../../workflows/workflow-obsidian-daily-process.yaml",
+    import.meta.url,
+  );
+  return parseYaml(Deno.readTextFileSync(path)) as WorkflowDefinition;
+}
+
+function findStep(workflow: WorkflowDefinition, name: string): WorkflowStep {
+  const step = workflow.jobs.flatMap((job) => job.steps).find(
+    (s) => s.name === name,
+  );
+  assert(step, `workflow has no step named ${name}`);
+  return step;
+}
+
+Deno.test("workflow review input is an opt-in boolean, off by default", () => {
+  const review = loadWorkflow().inputs.properties.review;
+  assert(review, "workflow must declare a review input");
+  assertEquals(review.type, "boolean");
+  assertEquals(review.default, false);
+});
+
+Deno.test("workflow review step is a manual_approval gate on ask", () => {
+  const step = findStep(loadWorkflow(), "review");
+  assertEquals(step.task.type, "manual_approval");
+  assertEquals(step.guard, "${{ !inputs.review }}");
+  assertEquals(step.task.timeout, 86400);
+  assertEquals(step.dependsOn, [
+    { step: "ask", condition: { type: "succeeded" } },
+  ]);
+});
+
+Deno.test("workflow run depends on review, accepting success or a guarded skip", () => {
+  const run = findStep(loadWorkflow(), "run");
+  assertEquals(run.dependsOn?.map((d) => d.step), ["review"]);
+  assertEquals(run.dependsOn?.[0].condition.type, "or");
+  assertEquals(
+    run.dependsOn?.[0].condition.conditions?.map((c) => c.type),
+    ["succeeded", "skipped"],
   );
 });
 
