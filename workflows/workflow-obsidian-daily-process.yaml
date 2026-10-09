@@ -48,6 +48,7 @@ jobs:
             prompt: ${{ data.latest("obsidian-daily-processor", "request").attributes.prompt }}
             schema: ${{ data.latest("obsidian-daily-processor", "request").attributes.schema }}
             name: obsidian-daily-processor
+            maxAttempts: 2
       - name: run
         description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each."
         dependsOn:
