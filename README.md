@@ -44,11 +44,11 @@ swamp model create @mesgme/opencode opencode \
 Then create the processor and run the first step:
 
 ```bash
-swamp model create @mesgme/obsidian-daily-processor daily-processor \
+swamp model create @mesgme/obsidian-daily-processor obsidian-daily-processor \
   --global-arg vaultPath=/path/to/your/vault \
   --global-arg dailyNotesFolder=Daily \
   --global-arg outputFolder=Processed
-swamp model method run daily-processor prepare --input date=2026-10-07
+swamp model method run obsidian-daily-processor prepare --input date=2026-10-07
 ```
 
 Wire `prepare` → `ask` → `run` in a workflow, passing the stored `request` to
