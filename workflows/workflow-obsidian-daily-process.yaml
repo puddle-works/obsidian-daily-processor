@@ -12,6 +12,10 @@ inputs:
       type: string
       description: "Day to process, as YYYY-MM-DD. Leave empty for today."
       default: ""
+    review:
+      type: boolean
+      description: "Stop for approval before writing the note."
+      default: false
   required: []
 
 jobs:
@@ -49,12 +53,31 @@ jobs:
             schema: ${{ data.latest("obsidian-daily-processor", "request").attributes.schema }}
             name: obsidian-daily-processor
             maxAttempts: 2
-      - name: run
-        description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each."
+      - name: review
+        description: "Optional human gate: approve the AI answer before it is written into the vault. Runs only when `review` is true."
         dependsOn:
           - step: ask
             condition:
               type: succeeded
+        guard: ${{ !inputs.review }}
+        weight: 0
+        allowFailure: false
+        task:
+          type: manual_approval
+          prompt: >-
+            Check the AI answer (swamp data query 'model("opencode") && name ==
+            "obsidian-daily-processor"' --select content), then approve to write
+            the note.
+          timeout: 86400
+      - name: run
+        description: "A note at <outputFolder>/<date> processed.md with the day's todos and permanent notes, plus the number of each."
+        dependsOn:
+          - step: review
+            condition:
+              type: or
+              conditions:
+                - type: succeeded
+                - type: skipped
         weight: 0
         allowFailure: false
         task:

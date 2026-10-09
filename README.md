@@ -55,6 +55,27 @@ Wire `prepare` → `ask` → `run` in a workflow, passing the stored `request` t
 `ask` and its answer to `run`. See the `@mesgme/opencode` README for the `ask`
 step.
 
+## Review before writing (optional)
+
+The workflow writes straight through by default. To check the AI answer before
+it is written, run with `review=true`:
+
+```bash
+swamp workflow run obsidian-daily-process --input review=true
+swamp workflow approvals                          # find the suspended run id
+swamp workflow approve obsidian-daily-process review --run <run-id>
+swamp workflow resume  obsidian-daily-process --run <run-id>
+```
+
+The run suspends at `review`; approve it to write the note, or reject it to
+stop without writing:
+
+```bash
+swamp workflow reject obsidian-daily-process review --run <run-id> --reason "wrong todos"
+```
+
+A rejection writes nothing. `review=false` (the default) is unchanged.
+
 ## Test it
 
 ```bash
