@@ -17,12 +17,15 @@
  * specification of request `obsidian-daily-processor`, with the behaviour filled in.
  *
  * The workflow is prepare → ask → run. `prepare` reads the day's log and stores the
- * request (system prompt, prompt, JSON schema). The `@mesgme/opencode` model's `ask`
- * method sends it to the AI. `run` validates the answer and writes the note.
+ * request (system prompt, prompt, JSON schema) plus a fingerprint of the log. The
+ * `@mesgme/opencode` model's `ask` method sends it to the AI. `run` re-reads the log,
+ * fails if its fingerprint differs from the one `prepare` stored (the log was edited
+ * meanwhile, e.g. during the review gate), then validates the answer and writes the note.
  *
  * @module
  */
 import { z } from "npm:zod@4";
+import { assertFresh, fingerprint } from "../../shared/puddle_fingerprint.ts";
 
 /** Settings fixed once per model instance, not per run. */
 export const GlobalArgsSchema = z.object({
@@ -89,6 +92,8 @@ export const RequestSchema = z.object({
   dailyPath: z.string(),
   system: z.string(),
   prompt: z.string(),
+  /** Hash of the log as `prepare` read it; `run` re-checks it. */
+  fingerprint: z.string(),
   schema: z.record(z.string(), z.unknown()),
 });
 /** The stored request handed to the `ask` step. */
@@ -96,6 +101,9 @@ export type Request = z.infer<typeof RequestSchema>;
 
 /** Arguments for the `run` method: the date plus the AI's answer from the `ask` step. */
 export const WriteArgsSchema = RunArgsSchema.extend({
+  fingerprint: z.string().min(1).describe(
+    "Fingerprint of the daily log from `prepare`; the run fails if the log changed since.",
+  ),
   answer: z.unknown().optional().describe(
     "The AI's answer: an object with `todos` and `permanentNotes`.",
   ),
@@ -157,6 +165,20 @@ function resolve(date: string, settings: GlobalArgs, deps: Deps) {
   return { day, root, dailyPath: `${dailyFolder}/${day}.md`, outputFolder };
 }
 
+/** Read the day's log; a missing note is a clear error. */
+async function readLog(root: string, dailyPath: string, day: string) {
+  try {
+    return await Deno.readTextFile(`${root}/${dailyPath}`);
+  } catch (e) {
+    if (e instanceof Deno.errors.NotFound) {
+      throw new Error(
+        `No daily note for ${day} at "${dailyPath}" in the vault.`,
+      );
+    }
+    throw e;
+  }
+}
+
 /**
  * Read one day's log and build the request for the AI. Writes nothing to the vault.
  * An empty log is still sent: it costs one cheap call and comes back with empty lists.
@@ -167,22 +189,13 @@ export async function prepare(
   deps: Deps = {},
 ): Promise<Request> {
   const { day, root, dailyPath } = resolve(args.date, settings, deps);
-  let log: string;
-  try {
-    log = await Deno.readTextFile(`${root}/${dailyPath}`);
-  } catch (e) {
-    if (e instanceof Deno.errors.NotFound) {
-      throw new Error(
-        `No daily note for ${day} at "${dailyPath}" in the vault.`,
-      );
-    }
-    throw e;
-  }
+  const log = await readLog(root, dailyPath, day);
   return {
     date: day,
     dailyPath,
     system: SYSTEM_PROMPT,
     prompt: `<daily_log>\n${log}\n</daily_log>`,
+    fingerprint: await fingerprint(log),
     schema: EXTRACTION_JSON_SCHEMA,
   };
 }
@@ -201,6 +214,8 @@ export async function run(
     settings,
     deps,
   );
+  const log = await readLog(root, dailyPath, day);
+  assertFresh(args.fingerprint, await fingerprint(log), "The daily log");
   const parsed = ExtractionSchema.safeParse(args.answer);
   if (!parsed.success) {
     throw new Error(
@@ -277,7 +292,7 @@ interface MethodContext {
 /** The model type: `prepare` stores a request for the AI step, `run` writes the processed note. */
 export const model = {
   type: "@mesgme/obsidian-daily-processor",
-  version: "2026.10.09.1",
+  version: "2026.10.10.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     request: {

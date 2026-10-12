@@ -89,3 +89,4 @@ jobs:
           inputs:
             date: ${{ data.latest("obsidian-daily-processor", "request").attributes.date }}
             answer: ${{ data.latest("opencode", "obsidian-daily-processor").attributes.json }}
+            fingerprint: ${{ data.latest("obsidian-daily-processor", "request").attributes.fingerprint }}

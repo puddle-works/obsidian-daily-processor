@@ -27,6 +27,7 @@ import {
   run,
   RunArgsSchema,
 } from "./obsidian_daily_processor.ts";
+import { fingerprint } from "../../shared/puddle_fingerprint.ts";
 
 /** Values for the required inputs. */
 const REQUIRED = {};
@@ -73,7 +74,7 @@ Deno.test("every setting must be set", () => {
 
 Deno.test("run writes one result resource with the arguments it ran with", async () => {
   using runStub = stub(behaviour, "run", () => Promise.resolve([]));
-  const args = RunArgsSchema.parse(REQUIRED);
+  const args = { ...RunArgsSchema.parse(REQUIRED), fingerprint: "sha256:x" };
   const writes: Array<{ specName: string; data: Record<string, unknown> }> = [];
   const out = await model.methods.run.execute(args, {
     globalArgs: SETTINGS,
@@ -86,7 +87,7 @@ Deno.test("run writes one result resource with the arguments it ran with", async
   assertSpyCallArgs(runStub, 0, [args, SETTINGS]);
   assertEquals(writes.length, 1);
   assertEquals(writes[0].specName, "result");
-  assertEquals(writes[0].data.args, args);
+  assertEquals(writes[0].data.args, { date: "" });
   assertEquals(ResultSchema.safeParse(writes[0].data).success, true);
 });
 
@@ -121,6 +122,7 @@ function makeVault(days: Record<string, string>) {
 const DAY = "2026-10-05";
 const LOG =
   "Need to email Sam the invoice. Also book the boiler. Thought: voice notes work because they cost nothing.";
+const LOG_FP = await fingerprint(LOG);
 const vaultFiles = (root: string) =>
   [...Deno.readDirSync(root)].map((e) => e.name);
 
@@ -211,9 +213,63 @@ Deno.test("prepare method writes the request resource under the name request", a
   assertEquals(writes[0].data.date, DAY);
 });
 
+Deno.test("prepare puts the log's fingerprint in the request", async () => {
+  const vault = makeVault({ [DAY]: LOG });
+  const request = await prepare({ date: DAY }, vault.settings);
+  assertEquals(request.fingerprint, await fingerprint(LOG));
+});
+
+Deno.test("run after the log was edited fails and writes no note", async () => {
+  const vault = makeVault({ [DAY]: LOG });
+  Deno.writeTextFileSync(`${vault.root}/Daily/${DAY}.md`, LOG + "\nMore.");
+  await assertRejects(
+    () =>
+      run(
+        { date: DAY, answer: EXTRACTION, fingerprint: LOG_FP },
+        vault.settings,
+      ),
+    Error,
+    "changed since prepare",
+  );
+  assertEquals(vaultFiles(vault.root), ["Daily"]);
+});
+
+Deno.test("run fails with the no-daily-note error when the log was deleted", async () => {
+  const vault = makeVault({});
+  await assertRejects(
+    () =>
+      run(
+        { date: DAY, answer: EXTRACTION, fingerprint: LOG_FP },
+        vault.settings,
+      ),
+    Error,
+    `No daily note for ${DAY}`,
+  );
+});
+
+Deno.test("run without a fingerprint fails schema parse", () => {
+  assertEquals(
+    model.methods.run.arguments.safeParse({ date: DAY, answer: EXTRACTION })
+      .success,
+    false,
+  );
+  assertEquals(
+    model.methods.run.arguments.safeParse({
+      date: DAY,
+      answer: EXTRACTION,
+      fingerprint: "",
+    }).success,
+    false,
+  );
+});
+
 Deno.test("run writes the processed note from a given answer", async () => {
   const vault = makeVault({ [DAY]: LOG });
-  const items = await run({ date: DAY, answer: EXTRACTION }, vault.settings);
+  const items = await run({
+    date: DAY,
+    answer: EXTRACTION,
+    fingerprint: LOG_FP,
+  }, vault.settings);
   assertEquals(items, [{
     date: DAY,
     path: `Processed/${DAY} processed.md`,
@@ -232,9 +288,13 @@ Deno.test("run writes the processed note from a given answer", async () => {
 
 Deno.test("run with an empty date processes today", async () => {
   const vault = makeVault({ "2026-10-06": LOG });
-  const items = await run({ date: "", answer: EXTRACTION }, vault.settings, {
-    now: () => new Date(2026, 9, 6, 23, 30),
-  });
+  const items = await run(
+    { date: "", answer: EXTRACTION, fingerprint: LOG_FP },
+    vault.settings,
+    {
+      now: () => new Date(2026, 9, 6, 23, 30),
+    },
+  );
   assertEquals(items[0].date, "2026-10-06");
 });
 
@@ -242,6 +302,7 @@ Deno.test("run accepts empty lists and notes none found", async () => {
   const vault = makeVault({ [DAY]: "" });
   const items = await run({
     date: DAY,
+    fingerprint: await fingerprint(""),
     answer: { todos: [], permanentNotes: [] },
   }, vault.settings);
   assertEquals(items[0].todos + items[0].permanentNotes, 0);
@@ -260,7 +321,7 @@ Deno.test("run refuses an answer that does not match and writes nothing", async 
     }]
   ) {
     await assertRejects(
-      () => run({ date: DAY, answer }, vault.settings),
+      () => run({ date: DAY, answer, fingerprint: LOG_FP }, vault.settings),
       Error,
     );
   }
@@ -269,20 +330,27 @@ Deno.test("run refuses an answer that does not match and writes nothing", async 
 
 Deno.test("run never edits the daily log", async () => {
   const vault = makeVault({ [DAY]: LOG });
-  await run({ date: DAY, answer: EXTRACTION }, vault.settings);
+  await run(
+    { date: DAY, answer: EXTRACTION, fingerprint: LOG_FP },
+    vault.settings,
+  );
   assertEquals(Deno.readTextFileSync(`${vault.root}/Daily/${DAY}.md`), LOG);
 });
 
 Deno.test("run rejects bad dates and folders outside the vault", async () => {
   const vault = makeVault({ [DAY]: LOG });
   await assertRejects(
-    () => run({ date: "2026-02-30", answer: EXTRACTION }, vault.settings),
+    () =>
+      run(
+        { date: "2026-02-30", answer: EXTRACTION, fingerprint: LOG_FP },
+        vault.settings,
+      ),
     Error,
     "YYYY-MM-DD",
   );
   await assertRejects(
     () =>
-      run({ date: DAY, answer: EXTRACTION }, {
+      run({ date: DAY, answer: EXTRACTION, fingerprint: LOG_FP }, {
         ...vault.settings,
         outputFolder: "../out",
       }),
@@ -296,9 +364,14 @@ Deno.test("run method takes the date plus an answer, and stores only the date as
   assertEquals(Object.keys(model.methods.run.arguments.shape).sort(), [
     "answer",
     "date",
+    "fingerprint",
   ]);
   const writes: Array<{ specName: string; data: Record<string, unknown> }> = [];
-  await model.methods.run.execute({ date: DAY, answer: EXTRACTION }, {
+  await model.methods.run.execute({
+    date: DAY,
+    answer: EXTRACTION,
+    fingerprint: LOG_FP,
+  }, {
     globalArgs: vault.settings,
     writeResource: (specName, name, data) => {
       writes.push({ specName, data });
@@ -388,6 +461,16 @@ Deno.test("workflow run depends on review, accepting success or a guarded skip",
   assertEquals(
     run.dependsOn?.[0].condition.conditions?.map((c) => c.type),
     ["succeeded", "skipped"],
+  );
+});
+
+Deno.test("workflow run step passes the request fingerprint", () => {
+  const run = findStep(loadWorkflow(), "run") as WorkflowStep & {
+    task: { inputs?: Record<string, string> };
+  };
+  assertEquals(
+    run.task.inputs?.fingerprint,
+    '${{ data.latest("obsidian-daily-processor", "request").attributes.fingerprint }}',
   );
 });
 

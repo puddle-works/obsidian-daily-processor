@@ -76,6 +76,10 @@ swamp workflow reject obsidian-daily-process review --run <run-id> --reason "wro
 
 A rejection writes nothing. `review=false` (the default) is unchanged.
 
+If the daily log is edited between `prepare` and `run` (for example while the
+run waits at `review`), `run` fails with "The daily log changed since prepare"
+and writes nothing; run the workflow again.
+
 ## Test it
 
 ```bash
