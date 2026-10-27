@@ -1,7 +1,7 @@
 /**
- * Tests for @mesgme/obsidian-daily-processor.
+ * Tests for @puddleworks/obsidian-daily-processor.
  *
- * Run with the "Test it" command in puddles/obsidian-daily-processor/README.md.
+ * Run with: make test
  *
  * @module
  */
@@ -27,7 +27,7 @@ import {
   run,
   RunArgsSchema,
 } from "./obsidian_daily_processor.ts";
-import { fingerprint } from "../../shared/puddle_fingerprint.ts";
+import { fingerprint } from "https://raw.githubusercontent.com/puddle-works/puddle-tooling/23e7e0b0aef150e6acde783906ca0ee177a554ce/fingerprint/fingerprint.ts";
 
 /** Values for the required inputs. */
 const REQUIRED = {};
@@ -43,7 +43,7 @@ const SETTINGS: GlobalArgs = {
 };
 
 Deno.test("model type matches the request", () => {
-  assertEquals(model.type, "@mesgme/obsidian-daily-processor");
+  assertEquals(model.type, "@puddleworks/obsidian-daily-processor");
 });
 
 Deno.test("run arguments are exactly the specification inputs", () => {
@@ -67,6 +67,23 @@ Deno.test("run arguments reject values of the wrong type", () => {
   }
 });
 
+/** A logger that drops everything, for tests that do not look at logs. */
+const QUIET = { info: () => {} };
+
+/** A logger that records each line. */
+function recordingLogger() {
+  const lines: Array<{ message: string; props?: Record<string, unknown> }> =
+    [];
+  return {
+    lines,
+    logger: {
+      info: (message: string, props?: Record<string, unknown>) => {
+        lines.push({ message, props });
+      },
+    },
+  };
+}
+
 Deno.test("every setting must be set", () => {
   assertEquals(GlobalArgsSchema.safeParse({}).success, false);
   assertEquals(GlobalArgsSchema.safeParse(SETTINGS).success, true);
@@ -78,6 +95,7 @@ Deno.test("run writes one result resource with the arguments it ran with", async
   const writes: Array<{ specName: string; data: Record<string, unknown> }> = [];
   const out = await model.methods.run.execute(args, {
     globalArgs: SETTINGS,
+    logger: QUIET,
     writeResource: (specName, name, data) => {
       writes.push({ specName, data });
       return Promise.resolve({ name });
@@ -203,6 +221,7 @@ Deno.test("prepare method writes the request resource under the name request", a
   > = [];
   const out = await model.methods.prepare.execute({ date: DAY }, {
     globalArgs: vault.settings,
+    logger: QUIET,
     writeResource: (specName, name, data) => {
       writes.push({ specName, name, data });
       return Promise.resolve({ name });
@@ -373,6 +392,7 @@ Deno.test("run method takes the date plus an answer, and stores only the date as
     fingerprint: LOG_FP,
   }, {
     globalArgs: vault.settings,
+    logger: QUIET,
     writeResource: (specName, name, data) => {
       writes.push({ specName, data });
       return Promise.resolve({ name });
@@ -417,6 +437,7 @@ interface WorkflowStep {
 }
 
 interface WorkflowDefinition {
+  name: string;
   inputs: { properties: Record<string, { type: string; default?: unknown }> };
   jobs: Array<{ name: string; steps: WorkflowStep[] }>;
 }
@@ -493,4 +514,61 @@ Deno.test("extraction JSON Schema rejects empty todo and note strings", () => {
     validator.validate({ todos: [], permanentNotes: [] }).valid,
     true,
   );
+});
+
+// --- Packaging: the workflow ships in the package under the collective ---
+
+Deno.test("workflow is named under the package's collective", () => {
+  assertEquals(loadWorkflow().name, "@puddleworks/obsidian-daily-process");
+});
+
+Deno.test("manifest ships the workflow and depends on @puddleworks/opencode", () => {
+  const manifest = parseYaml(
+    Deno.readTextFileSync(new URL("../../manifest.yaml", import.meta.url)),
+  ) as {
+    name: string;
+    visibility?: string;
+    dependencies?: string[];
+    workflows?: string[];
+  };
+  assertEquals(manifest.name, model.type);
+  assertEquals(manifest.visibility, "public");
+  assertEquals(manifest.dependencies, ["@puddleworks/opencode"]);
+  assertEquals(manifest.workflows, ["workflow-obsidian-daily-process.yaml"]);
+});
+
+Deno.test("the ask step names the @puddleworks/opencode type", () => {
+  const ask = findStep(loadWorkflow(), "ask") as WorkflowStep & {
+    description?: string;
+  };
+  assertStringIncludes(String(ask.description), "@puddleworks/opencode");
+});
+
+Deno.test("methods log at info on entry and completion with structured placeholders", async () => {
+  const vault = makeVault({ [DAY]: LOG });
+  const write = (_s: string, name: string) => Promise.resolve({ name });
+
+  const prepared = recordingLogger();
+  await model.methods.prepare.execute({ date: DAY }, {
+    globalArgs: vault.settings,
+    logger: prepared.logger,
+    writeResource: write,
+  });
+  assertEquals(prepared.lines.length, 2);
+  assertEquals(prepared.lines[0].props?.date, DAY);
+  assertEquals(prepared.lines[1].props?.dailyPath, `Daily/${DAY}.md`);
+
+  const ran = recordingLogger();
+  await model.methods.run.execute(
+    { date: DAY, answer: EXTRACTION, fingerprint: LOG_FP },
+    { globalArgs: vault.settings, logger: ran.logger, writeResource: write },
+  );
+  assertEquals(ran.lines.length, 2);
+  assertEquals(ran.lines[0].props?.date, DAY);
+  assertEquals(ran.lines[1].props?.path, `Processed/${DAY} processed.md`);
+  assertEquals(ran.lines[1].props?.todos, 2);
+
+  for (const line of [...prepared.lines, ...ran.lines]) {
+    assertEquals(line.message.includes(LOG), false, "a log line holds the log");
+  }
 });
