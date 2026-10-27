@@ -1,0 +1,46 @@
+{
+  "format": "puddleworks.dev/outcome-spec/v1",
+  "request": {
+    "id": "1415739a-f010-4a5f-9b02-c489629ef466",
+    "title": "Process Superwhisper daily log entries into structured Obsidian notes",
+    "initialDescription": "Throughout the day I use Superwhisper to dictate unstructured voice notes into my Obsidian daily log — a stream-of-consciousness brain dump. A post-processing step (currently AI-assisted but ad-hoc) needs to extract structure from this raw text: atomic Todos, Topic notes, named Entities, dated Permanent notes (one idea per note, full sentences), tags and links between notes, and prompts for Overview/Summary notes. The output is imperfect but far more useful than my previous system of random post-its, envelopes, and unreadable notebook scrawls.",
+    "currentProcess": "Dictate into Superwhisper throughout the day; Superwhisper appends transcriptions to the Obsidian daily log. Periodically run an AI post-processing step manually to extract structure. Review and correct the outputs by hand.",
+    "url": "http://localhost:3001/requests/1415739a-f010-4a5f-9b02-c489629ef466"
+  },
+  "specification": {
+    "problemStatement": "Throughout the day I use Superwhisper to dictate unstructured voice notes into my Obsidian daily log — a stream-of-consciousness brain dump. A post-processing step (currently AI-assisted but ad-hoc) needs to extract structure from this raw text: atomic Todos, Topic notes, named Entities, dated Permanent notes (one idea per note, full sentences), tags and links between notes, and prompts for Overview/Summary notes. The output is imperfect but far more useful than my previous system of random post-its, envelopes, and unreadable notebook scrawls.",
+    "desiredOutcome": "Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences).",
+    "scope": {
+      "in": [],
+      "out": [
+        "Extracting named entities",
+        "Creating or updating topic notes",
+        "Overview or summary prompts",
+        "Adding tags or links between notes",
+        "Editing the daily log itself",
+        "Processing more than one day per run"
+      ]
+    },
+    "constraints": [],
+    "assumptions": [],
+    "acceptanceCriteria": [],
+    "version": 1
+  },
+  "agreement": {
+    "agreedBy": {
+      "name": "the user",
+      "email": ""
+    },
+    "agreedAt": "2026-10-07T11:28:42.359Z",
+    "specHash": "1e886647209f9825141ee7839f1cf4696af90199ee111505149925c48d066f2b"
+  },
+  "participants": [
+    {
+      "name": "the user",
+      "email": "",
+      "role": "outcome_owner"
+    }
+  ],
+  "openQuestions": [],
+  "exportedAt": "2026-10-27T10:22:28.038Z"
+}
