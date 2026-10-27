@@ -1,5 +1,5 @@
 /**
- * @mesgme/obsidian-daily-processor — Process Superwhisper daily log entries into structured Obsidian notes
+ * @puddleworks/obsidian-daily-processor — Process Superwhisper daily log entries into structured Obsidian notes
  *
  * Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences).
  *
@@ -18,14 +18,17 @@
  *
  * The workflow is prepare → ask → run. `prepare` reads the day's log and stores the
  * request (system prompt, prompt, JSON schema) plus a fingerprint of the log. The
- * `@mesgme/opencode` model's `ask` method sends it to the AI. `run` re-reads the log,
+ * `@puddleworks/opencode` model's `ask` method sends it to the AI. `run` re-reads the log,
  * fails if its fingerprint differs from the one `prepare` stored (the log was edited
  * meanwhile, e.g. during the review gate), then validates the answer and writes the note.
  *
  * @module
  */
 import { z } from "npm:zod@4";
-import { assertFresh, fingerprint } from "../../shared/puddle_fingerprint.ts";
+import {
+  assertFresh,
+  fingerprint,
+} from "https://raw.githubusercontent.com/puddle-works/puddle-tooling/23e7e0b0aef150e6acde783906ca0ee177a554ce/fingerprint/fingerprint.ts";
 
 /** Settings fixed once per model instance, not per run. */
 export const GlobalArgsSchema = z.object({
@@ -282,6 +285,7 @@ export const behaviour = { prepare, run };
 
 interface MethodContext {
   globalArgs: GlobalArgs;
+  logger: { info: (message: string, props?: Record<string, unknown>) => void };
   writeResource: (
     specName: string,
     name: string,
@@ -291,7 +295,7 @@ interface MethodContext {
 
 /** The model type: `prepare` stores a request for the AI step, `run` writes the processed note. */
 export const model = {
-  type: "@mesgme/obsidian-daily-processor",
+  type: "@puddleworks/obsidian-daily-processor",
   version: "2026.10.10.1",
   globalArguments: GlobalArgsSchema,
   resources: {
@@ -316,11 +320,22 @@ export const model = {
         "Read one day's daily log and store the request (system prompt, prompt, JSON schema) for the AI step. Writes nothing to the vault.",
       arguments: RunArgsSchema,
       execute: async (args: RunArgs, context: MethodContext) => {
+        context.logger.info("Reading the daily log for {date}", {
+          date: args.date || "today",
+        });
         const request = await behaviour.prepare(args, context.globalArgs);
         const handle = await context.writeResource(
           "request",
           "request",
           request,
+        );
+        context.logger.info(
+          "Stored the request for {date} from {dailyPath} ({fingerprint})",
+          {
+            date: request.date,
+            dailyPath: request.dailyPath,
+            fingerprint: request.fingerprint,
+          },
         );
         return { dataHandles: [handle] };
       },
@@ -330,6 +345,9 @@ export const model = {
         "Write the processed note for one day from the AI's answer: atomic todos and dated permanent notes (one idea each, in full sentences).",
       arguments: WriteArgsSchema,
       execute: async (args: WriteArgs, context: MethodContext) => {
+        context.logger.info("Writing the processed note for {date}", {
+          date: args.date || "today",
+        });
         const items = await behaviour.run(args, context.globalArgs);
         const result: Result = {
           args: { date: args.date },
@@ -337,6 +355,12 @@ export const model = {
           ranAt: new Date().toISOString(),
         };
         const handle = await context.writeResource("result", "result", result);
+        for (const item of items) {
+          context.logger.info(
+            "Wrote {path} with {todos} todos and {permanentNotes} permanent notes",
+            { ...item },
+          );
+        }
         return { dataHandles: [handle] };
       },
     },

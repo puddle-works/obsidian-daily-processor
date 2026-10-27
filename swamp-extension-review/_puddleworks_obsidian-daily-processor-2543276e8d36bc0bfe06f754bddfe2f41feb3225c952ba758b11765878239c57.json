@@ -1,0 +1,22 @@
+{
+  "extension": "@puddleworks/obsidian-daily-processor",
+  "version": "2026.10.27.1",
+  "reviewedAt": "2026-10-27T10:20:24Z",
+  "dimensions": [
+    { "id": "credentials-secrets", "verdict": "pass", "note": "No secrets. The settings are a vault path and two folders. The AI key lives in the separate @puddleworks/opencode instance, from a vault." },
+    { "id": "logging-quality", "verdict": "pass", "note": "prepare and run log at info on entry (date) and completion (daily path and fingerprint, or note path and counts), with structured placeholders. The log text itself is never logged (tested)." },
+    { "id": "error-handling", "verdict": "pass", "note": "Bad dates, folders outside the vault, a missing daily note, a changed log (fingerprint) and an answer that fails ExtractionSchema all throw before anything is written, with messages naming the date, path or setting. Only NotFound is caught in readLog; other errors are rethrown." },
+    { "id": "testing-completeness", "verdict": "pass", "note": "36 tests on a temp vault, no network: schemas, prepare and run success, bad dates and folders, a missing or edited log, invalid answers writing nothing, method wiring, logging, the workflow shape and the manifest's packaging." },
+    { "id": "idempotency-resilience", "verdict": "pass", "note": "prepare writes nothing to the vault. run writes one generated note and replaces it on a rerun; the daily log is never changed. A failure before the write leaves the vault as it was." },
+    { "id": "api-contracts", "verdict": "na", "note": "No HTTP calls; the AI call is in @puddleworks/opencode. Its answer is checked against ExtractionSchema before use." },
+    { "id": "resource-management", "verdict": "pass", "note": "Only Deno.readTextFile, mkdir and writeTextFile, which hold no handles open. No temporary files." },
+    { "id": "published-surface-hygiene", "verdict": "pass", "note": "README uses /path/to/your/vault and example folders. Tests build temp vaults with made-up log text. No hostnames, IPs or personal paths." },
+    { "id": "schema-strictness", "verdict": "pass", "note": "All schemas are plain z.object with no passthrough. run's answer is z.unknown on purpose and is parsed with ExtractionSchema inside run." },
+    { "id": "lifetime-gc", "verdict": "pass", "note": "request: infinite, keep 5 versions. result: infinite, keep 20." },
+    { "id": "crud-completeness", "verdict": "na", "note": "Not a CRUD lifecycle behavior; it turns one log into one note." },
+    { "id": "preflight-checks", "verdict": "pass", "note": "run, the only method that writes to the vault, checks the date, folder containment, log freshness and answer shape before writing. There is no live remote state, so there is nothing to skip by label." },
+    { "id": "instance-names", "verdict": "pass", "note": "prepare writes request/request and run writes result/result; the specs differ and each method writes one instance." },
+    { "id": "data-access", "verdict": "na", "note": "No method reads stored state; the workflow passes the request and answer in as inputs." },
+    { "id": "version-upgrades", "verdict": "pass", "note": "The type is new (@puddleworks/obsidian-daily-processor, renamed from the unpublished @mesgme one) and model.version is unchanged with no schema change, so no upgrade entry is needed." }
+  ]
+}

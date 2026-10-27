@@ -1,11 +1,19 @@
 manifestVersion: 1
-name: "@mesgme/obsidian-daily-processor"
-version: "2026.10.10.1"
+name: "@puddleworks/obsidian-daily-processor"
+version: "2026.10.27.1"
 description: "Turn one day's daily-log note into a separate processed note that lists atomic todos and dated permanent notes (one idea each, in full sentences)."
+repository: "https://github.com/puddle-works/obsidian-daily-processor"
+license: MIT
+visibility: public
+labels:
+  - obsidian
+  - ai
 additionalFiles:
   - README.md
   - LICENSE
 models:
   - obsidian_daily_processor.ts
+workflows:
+  - workflow-obsidian-daily-process.yaml
 dependencies:
-  - "@mesgme/opencode"
+  - "@puddleworks/opencode"
