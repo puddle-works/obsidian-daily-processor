@@ -27,7 +27,7 @@ import {
   run,
   RunArgsSchema,
 } from "./obsidian_daily_processor.ts";
-import { fingerprint } from "https://raw.githubusercontent.com/puddle-works/puddle-tooling/23e7e0b0aef150e6acde783906ca0ee177a554ce/fingerprint/fingerprint.ts";
+import { fingerprint } from "./_lib/fingerprint.ts";
 
 /** Values for the required inputs. */
 const REQUIRED = {};

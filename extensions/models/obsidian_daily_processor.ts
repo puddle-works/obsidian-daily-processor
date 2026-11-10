@@ -25,10 +25,7 @@
  * @module
  */
 import { z } from "npm:zod@4";
-import {
-  assertFresh,
-  fingerprint,
-} from "https://raw.githubusercontent.com/puddle-works/puddle-tooling/23e7e0b0aef150e6acde783906ca0ee177a554ce/fingerprint/fingerprint.ts";
+import { assertFresh, fingerprint } from "./_lib/fingerprint.ts";
 
 /** Settings fixed once per model instance, not per run. */
 export const GlobalArgsSchema = z.object({
@@ -297,6 +294,13 @@ interface MethodContext {
 export const model = {
   type: "@puddleworks/obsidian-daily-processor",
   version: "2026.10.10.1",
+  upgrades: [
+    {
+      toVersion: "2026.10.10.1",
+      description: "The first version; no schema changes.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+  ],
   globalArguments: GlobalArgsSchema,
   resources: {
     request: {
