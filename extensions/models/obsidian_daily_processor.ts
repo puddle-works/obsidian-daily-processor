@@ -294,6 +294,13 @@ interface MethodContext {
 export const model = {
   type: "@puddleworks/obsidian-daily-processor",
   version: "2026.10.10.1",
+  upgrades: [
+    {
+      toVersion: "2026.10.10.1",
+      description: "The first version; no schema changes.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+  ],
   globalArguments: GlobalArgsSchema,
   resources: {
     request: {

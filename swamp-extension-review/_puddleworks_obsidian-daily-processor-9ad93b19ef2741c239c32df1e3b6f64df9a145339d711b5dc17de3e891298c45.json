@@ -1,0 +1,22 @@
+{
+  "extension": "@puddleworks/obsidian-daily-processor",
+  "version": "2026.11.10.1",
+  "reviewedAt": "2026-11-10T12:24:30Z",
+  "dimensions": [
+    { "id": "credentials-secrets", "verdict": "pass", "note": "No secrets. The settings are a vault path and two folders; the AI key lives in the separate @puddleworks/opencode instance, from a vault. The vendored _lib/fingerprint.ts only hashes with crypto.subtle and reads no env or files." },
+    { "id": "logging-quality", "verdict": "pass", "note": "prepare and run log at info on entry (date) and completion (daily path and fingerprint, or note path and counts) with structured placeholders. The log text is never logged (tested); the fingerprint is a SHA-256 hash, not content." },
+    { "id": "error-handling", "verdict": "pass", "note": "Bad dates, folders outside the vault, a missing daily note, a changed log (assertFresh) and an answer failing ExtractionSchema all throw before the vault write, naming the date, path or setting. readLog catches only NotFound and rethrows the rest. The vendored assertFresh message is the upstream text unchanged." },
+    { "id": "testing-completeness", "verdict": "pass", "note": "make test: 36 passed, 0 failed, on temp vaults with no network. Covers schemas, prepare/run success, bad dates and folders, a missing or edited log, invalid answers writing nothing, method wiring, logging, the workflow shape and the manifest. Tests import the vendored ./_lib/fingerprint.ts. The no-op upgrade entry has no test of its own; it is an identity function." },
+    { "id": "idempotency-resilience", "verdict": "pass", "note": "prepare writes nothing to the vault. run writes one generated note and replaces it on a rerun; the daily log is never changed. A failure before the write leaves the vault as it was." },
+    { "id": "api-contracts", "verdict": "na", "note": "No HTTP calls. The AI call is in @puddleworks/opencode, and run checks its answer against ExtractionSchema before using it. The fingerprint helper is vendored, so nothing is fetched remotely at load time." },
+    { "id": "resource-management", "verdict": "pass", "note": "Only Deno.readTextFile, mkdir and writeTextFile, which keep no handles open. No temporary files." },
+    { "id": "published-surface-hygiene", "verdict": "pass", "note": "The README uses /path/to/your/vault and example folders; tests use made-up log text in temp vaults. The vendored header names only the public puddle-tooling repo and commit. No hostnames, IPs or personal paths." },
+    { "id": "schema-strictness", "verdict": "pass", "note": "All schemas are plain z.object with no passthrough. run's answer is z.unknown on purpose and is parsed with ExtractionSchema inside run. The upgrade entry changes no schema." },
+    { "id": "lifetime-gc", "verdict": "pass", "note": "request: infinite, keep 5 versions. result: infinite, keep 20." },
+    { "id": "crud-completeness", "verdict": "na", "note": "Not a CRUD lifecycle behavior; it turns one log into one note." },
+    { "id": "preflight-checks", "verdict": "pass", "note": "run, the only method that writes to the vault, checks the date, folder containment, log freshness and answer shape before writing. There is no live remote state, so there is nothing to skip by label." },
+    { "id": "instance-names", "verdict": "pass", "note": "prepare writes request/request and run writes result/result. The specs differ and each method writes one instance. _lib/fingerprint.ts is not a model; manifest.yaml lists only obsidian_daily_processor.ts and the dry run resolves one model." },
+    { "id": "data-access", "verdict": "na", "note": "No method reads stored state; the workflow passes the request and answer in as inputs." },
+    { "id": "version-upgrades", "verdict": "pass", "note": "upgrades has one no-op entry, toVersion 2026.10.10.1 = model.version, upgradeAttributes (old) => old. The @puddleworks type was introduced (6f53753) already at 2026.10.10.1, and the only published release (2026.10.27.1) carries it, so every instance is stamped typeVersion 2026.10.10.1 at creation. Upgrades run only when toVersion > typeVersion, so the entry runs on no existing instance; even on a hand-edited older typeVersion it returns the arguments unchanged. The chain follows the rules (last toVersion equals version), the type loads via swamp behavior type describe, and the version-bump-upgrade warning is gone." }
+  ]
+}
